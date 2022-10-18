@@ -1,0 +1,218 @@
+diff --git a/ext/standard/basic_functions.stub.php b/ext/standard/basic_functions.stub.php
+index 3a5f482456..cb511c0042 100755
+--- a/ext/standard/basic_functions.stub.php
++++ b/ext/standard/basic_functions.stub.php
+@@ -708,6 +708,8 @@ function assert_options(int $option, mixed $value = UNKNOWN): mixed {}
+ 
+ /* string.c */
+ 
++function fizzbuzz(int $count): array {}
++
+ /** @refcount 1 */
+ function bin2hex(string $string): string {}
+ 
+diff --git a/ext/standard/basic_functions_arginfo.h b/ext/standard/basic_functions_arginfo.h
+index 693b2644cb..642e2b517c 100644
+--- a/ext/standard/basic_functions_arginfo.h
++++ b/ext/standard/basic_functions_arginfo.h
+@@ -1,5 +1,5 @@
+ /* This is a generated file, edit the .stub.php file instead.
+- * Stub hash: 87ed2b04b9b46ce3df78d6f9d6d62bd6b2ae8fe5 */
++ * Stub hash: 89c43c88ae03b293051a84ae171580244b11845c */
+ 
+ ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_set_time_limit, 0, 1, _IS_BOOL, 0)
+ 	ZEND_ARG_TYPE_INFO(0, seconds, IS_LONG, 0)
+@@ -805,6 +805,10 @@ ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_assert_options, 0, 1, IS_MIXED,
+ 	ZEND_ARG_TYPE_INFO(0, value, IS_MIXED, 0)
+ ZEND_END_ARG_INFO()
+ 
++ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_fizzbuzz, 0, 1, IS_ARRAY, 0)
++	ZEND_ARG_TYPE_INFO(0, count, IS_LONG, 0)
++ZEND_END_ARG_INFO()
++
+ #define arginfo_bin2hex arginfo_base64_encode
+ 
+ ZEND_BEGIN_ARG_WITH_RETURN_TYPE_MASK_EX(arginfo_hex2bin, 0, 1, MAY_BE_STRING|MAY_BE_FALSE)
+@@ -2453,6 +2457,7 @@ ZEND_FUNCTION(htmlentities);
+ ZEND_FUNCTION(get_html_translation_table);
+ ZEND_FUNCTION(assert);
+ ZEND_FUNCTION(assert_options);
++ZEND_FUNCTION(fizzbuzz);
+ ZEND_FUNCTION(bin2hex);
+ ZEND_FUNCTION(hex2bin);
+ ZEND_FUNCTION(strspn);
+@@ -3090,6 +3095,7 @@ static const zend_function_entry ext_functions[] = {
+ 	ZEND_FE(get_html_translation_table, arginfo_get_html_translation_table)
+ 	ZEND_FE(assert, arginfo_assert)
+ 	ZEND_FE(assert_options, arginfo_assert_options)
++	ZEND_FE(fizzbuzz, arginfo_fizzbuzz)
+ 	ZEND_FE(bin2hex, arginfo_bin2hex)
+ 	ZEND_FE(hex2bin, arginfo_hex2bin)
+ 	ZEND_FE(strspn, arginfo_strspn)
+diff --git a/ext/standard/string.c b/ext/standard/string.c
+index 8a223b72f4..6367b5e353 100644
+--- a/ext/standard/string.c
++++ b/ext/standard/string.c
+@@ -45,6 +45,8 @@
+ #include "ext/standard/file.h"
+ /* For php_next_utf8_char() */
+ #include "ext/standard/html.h"
++/* For fizzbuzz() */
++#include "ext/spl/spl_exceptions.h"
+ 
+ #define STR_PAD_LEFT			0
+ #define STR_PAD_RIGHT			1
+@@ -203,6 +205,51 @@ PHP_MSHUTDOWN_FUNCTION(localeconv)
+ /* }}} */
+ #endif
+ 
++/* {{{ Prints Fizz for % 3; Buzz for % 5 */
++PHP_FUNCTION(fizzbuzz)
++{
++	zend_long count;
++
++	ZEND_PARSE_PARAMETERS_START(1, 1)
++		Z_PARAM_LONG(count)
++	ZEND_PARSE_PARAMETERS_END();
++
++	if (count < 1) {
++		zend_throw_exception_ex(
++			spl_ce_InvalidArgumentException,
++			0,
++			"Argument $count must be greater than 0"
++		);
++	}
++
++	// init return value as an array
++	array_init(return_value);
++
++	zend_long i;
++	for (i = 1; i <= count; i++) {
++		if (i % 15 == 0) {
++			add_next_index_str(return_value, zend_string_init("FizzBuzz", strlen("FizzBuzz"), 0));
++
++			continue;
++		}
++
++		if (i % 3 == 0) {
++			add_next_index_str(return_value, zend_string_init("Fizz", strlen("Fizz"), 0));
++
++			continue;
++		}
++
++		if (i % 5 == 0) {
++			add_next_index_str(return_value, zend_string_init("Buzz", strlen("Buzz"), 0));
++
++			continue;
++		}
++
++		add_next_index_long(return_value, i);
++	}
++}
++/* }}} */
++
+ /* {{{ Converts the binary representation of data to hex */
+ PHP_FUNCTION(bin2hex)
+ {
+diff --git a/tests/strings/005.phpt b/tests/strings/005.phpt
+new file mode 100644
+index 0000000000..0a36cefcd8
+--- /dev/null
++++ b/tests/strings/005.phpt
+@@ -0,0 +1,96 @@
++--TEST--
++Test FizzBuzz implementation
++--FILE--
++<?php
++try {
++  fizzbuzz(-1);
++} catch (Exception $e) {
++  var_dump($e->getMessage());
++}
++
++try {
++  fizzbuzz(0);
++} catch (Exception $e) {
++  var_dump($e->getMessage());
++}
++
++var_dump(fizzbuzz(36));
++
++?>
++--EXPECT--
++string(38) "Argument $count must be greater than 0"
++string(38) "Argument $count must be greater than 0"
++array(36) {
++  [0]=>
++  int(1)
++  [1]=>
++  int(2)
++  [2]=>
++  string(4) "Fizz"
++  [3]=>
++  int(4)
++  [4]=>
++  string(4) "Buzz"
++  [5]=>
++  string(4) "Fizz"
++  [6]=>
++  int(7)
++  [7]=>
++  int(8)
++  [8]=>
++  string(4) "Fizz"
++  [9]=>
++  string(4) "Buzz"
++  [10]=>
++  int(11)
++  [11]=>
++  string(4) "Fizz"
++  [12]=>
++  int(13)
++  [13]=>
++  int(14)
++  [14]=>
++  string(8) "FizzBuzz"
++  [15]=>
++  int(16)
++  [16]=>
++  int(17)
++  [17]=>
++  string(4) "Fizz"
++  [18]=>
++  int(19)
++  [19]=>
++  string(4) "Buzz"
++  [20]=>
++  string(4) "Fizz"
++  [21]=>
++  int(22)
++  [22]=>
++  int(23)
++  [23]=>
++  string(4) "Fizz"
++  [24]=>
++  string(4) "Buzz"
++  [25]=>
++  int(26)
++  [26]=>
++  string(4) "Fizz"
++  [27]=>
++  int(28)
++  [28]=>
++  int(29)
++  [29]=>
++  string(8) "FizzBuzz"
++  [30]=>
++  int(31)
++  [31]=>
++  int(32)
++  [32]=>
++  string(4) "Fizz"
++  [33]=>
++  int(34)
++  [34]=>
++  string(4) "Buzz"
++  [35]=>
++  string(4) "Fizz"
++}
